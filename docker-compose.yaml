@@ -1,0 +1,40 @@
+version: "3.8"
+
+services:
+  vmagent:
+    image: victoriametrics/vmagent:latest
+    container_name: vmagent
+    ports:
+      - "8429:8429"
+    volumes:
+      - vmagent-data:/vmagentdata
+    environment:
+      - JOB_NAME=${JOB_NAME:-vmagent}
+      - SCRAPE_TARGETS=${SCRAPE_TARGETS:-localhost:8429}
+      - SCRAPE_INTERVAL=${SCRAPE_INTERVAL:-10s}
+    configs:
+      - source: vmagent_config
+        target: /etc/prometheus/prometheus.yml
+    command:
+      - "-promscrape.config=/etc/prometheus/prometheus.yml"
+      - "-remoteWrite.tmpDataPath=/vmagentdata/tmp"
+      - "-remoteWrite.maxDiskUsagePerURL=10737418240"
+      - "-remoteWrite.url=https://monitoring.api.cloud.ru/v2/project/${PROJECT_ID}/prometheus/api/v1/write"
+      - "-remoteWrite.oauth2.clientID=${CLIENT_ID}"
+      - "-remoteWrite.oauth2.clientSecret=${CLIENT_SECRET}"
+      - "-remoteWrite.oauth2.tokenUrl=https://auth.iam.sbercloud.ru/auth/system/openid/token"
+      - '-remoteWrite.oauth2.endpointParams={"grant_type": "access_key"}'
+    restart: always
+
+configs:
+  vmagent_config:
+    content: |
+      global:
+        scrape_interval: "%{SCRAPE_INTERVAL}"
+      scrape_configs:
+        - job_name: "%{JOB_NAME}"
+          static_configs:
+            - targets: ["%{SCRAPE_TARGETS}"]
+
+volumes:
+  vmagent-data:
